@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Plan Medicina</title>
+<style>
+body { font-family: Arial; background:#f3f4f6; padding:20px;}
+h1 { font-size:28px; }
+.grid { display:grid; grid-template-columns: repeat(3,1fr); gap:20px;}
+.card { background:white; padding:15px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+.materia { padding:10px; border-radius:10px; margin-bottom:5px; cursor:pointer;}
+.bloqueada { background:#d1d5db;}
+.disponible { background:#bfdbfe;}
+.cursando { background:#fde68a;}
+.regular { background:#fed7aa;}
+.aprobada { background:#86efac;}
+</style>
+</head>
+
+<body>
+
+<h1>Plan de Medicina</h1>
+
+<div class="grid" id="app"></div>
+
+<script>
+const estados = ["bloqueada","disponible","cursando","regular","aprobada"];
+
+const materias = {
+"CBC": ["IPC","Sociedad","Química","Biofísica","Biología","Matemática"],
+"Primer Año": ["Anatomía","Histología","Embriología","Genética"],
+"Segundo Año": ["Fisiología","Bioquímica","Inmunología","Microbiología"],
+"Medicina": ["Medicina A","Patología","Farmacología I","Farmacología II"],
+"Clínicas": ["Medicina B","Psiquiatría"],
+"Quirúrgicas": ["Cirugía","Pediatría"],
+"PFO": ["Final"]
+};
+
+let estado = JSON.parse(localStorage.getItem("estado")||"{}");
+
+function guardar() {
+localStorage.setItem("estado", JSON.stringify(estado));
+}
+
+function crearMateria(nombre) {
+let div = document.createElement("div");
+
+let est = estado[nombre] ?? 1;
+div.className = "materia " + estados[est];
+div.innerText = nombre + " (" + estados[est] + ")";
+
+div.onclick = () => {
+est = (est + 1) % estados.length;
+estado[nombre] = est;
+guardar();
+render();
+};
+
+return div;
+}
+
+function render() {
+const app = document.getElementById("app");
+app.innerHTML = "";
+
+for (let bloque in materias) {
+let card = document.createElement("div");
+card.className = "card";
+
+let titulo = document.createElement("h3");
+titulo.innerText = bloque;
+card.appendChild(titulo);
+
+materias[bloque].forEach(m => {
+card.appendChild(crearMateria(m));
+});
+
+app.appendChild(card);
+}
+}
+
+render();
+</script>
+
+</body>
+</html>
