@@ -1,0 +1,120 @@
+import { useState } from "react";
+
+const estados = [
+  { label: "Bloqueada", color: "bg-gray-300" },
+  { label: "Disponible", color: "bg-blue-200" },
+  { label: "Cursando", color: "bg-yellow-200" },
+  { label: "Regular", color: "bg-orange-200" },
+  { label: "Aprobada", color: "bg-green-300" },
+];
+
+// Reglas de correlatividad
+const reglas = {
+  "Anatomía": { dependeDe: ["CBC"], requiere: "Aprobada" },
+  "Histología": { dependeDe: ["CBC"], requiere: "Aprobada" },
+  "Embriología": { dependeDe: ["CBC"], requiere: "Aprobada" },
+  "Genética": { dependeDe: ["CBC"], requiere: "Aprobada" },
+
+  "Fisiología": { dependeDe: ["Anatomía", "Histología"], requiere: "Aprobada" },
+  "Bioquímica": { dependeDe: ["Anatomía", "Histología"], requiere: "Aprobada" },
+  "Inmunología": { dependeDe: ["Anatomía", "Histología"], requiere: "Aprobada" },
+  "Microbiología": { dependeDe: ["Bioquímica", "Inmunología"], requiere: "Regular" },
+
+  "Medicina A": { dependeDe: ["Fisiología", "Microbiología"], requiere: "Aprobada" },
+  "Patología": { dependeDe: ["Medicina A"], requiere: "Aprobada" },
+  "Farmacología I": { dependeDe: ["Medicina A"], requiere: "Aprobada" },
+  "Farmacología II": { dependeDe: ["Farmacología I"], requiere: "Aprobada" },
+
+  "Medicina B": { dependeDe: ["Medicina A", "Patología"], requiere: "Aprobada" },
+  "Clínicas": { dependeDe: ["Medicina B"], requiere: "Aprobada" },
+  "Quirúrgicas": { dependeDe: ["Medicina B"], requiere: "Aprobada" },
+
+  "PFO": { dependeDe: ["Clínicas", "Quirúrgicas"], requiere: "Aprobada" },
+};
+
+const materiasBase = {
+  "CBC": [
+    "IPC", "Sociedad y Estado", "Química", "Biofísica", "Biología Celular", "Matemática"
+  ],
+  "Primer Año": [
+    "Anatomía", "Histología", "Embriología", "Genética"
+  ],
+  "Segundo Año": [
+    "Fisiología", "Bioquímica", "Inmunología", "Microbiología"
+  ],
+  "Medicina": [
+    "Medicina A", "Patología", "Farmacología I", "Farmacología II"
+  ],
+  "Clínicas": [
+    "Medicina B"
+  ],
+  "Quirúrgicas": [
+    "Cirugía"
+  ],
+  "PFO": [
+    "Internado"
+  ]
+};
+
+function cumpleRequisitos(materia, estadoMaterias) {
+  const regla = reglas[materia];
+  if (!regla) return true;
+
+  return regla.dependeDe.every((dep) => {
+    const estadoIndex = estadoMaterias[dep];
+    if (estadoIndex === undefined) return false;
+
+    const estado = estados[estadoIndex].label;
+
+    if (regla.requiere === "Aprobada") return estado === "Aprobada";
+    if (regla.requiere === "Regular") return estado === "Regular" || estado === "Aprobada";
+
+    return false;
+  });
+}
+
+export default function App() {
+  const [estadoMaterias, setEstadoMaterias] = useState({});
+
+  const cambiarEstado = (materia) => {
+    if (!cumpleRequisitos(materia, estadoMaterias)) return;
+
+    const actual = estadoMaterias[materia] || 1; // arranca en disponible
+    const nuevo = (actual + 1) % estados.length;
+
+    setEstadoMaterias({ ...estadoMaterias, [materia]: nuevo });
+  };
+
+  return (
+    <div className="p-6 grid gap-6 bg-gray-100 min-h-screen">
+      <h1 className="text-3xl font-bold">Plan de Estudios Medicina</h1>
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {Object.entries(materiasBase).map(([categoria, lista]) => (
+          <div key={categoria} className="bg-white shadow-xl rounded-2xl p-4">
+            <h2 className="text-xl font-semibold mb-3">{categoria}</h2>
+
+            <div className="flex flex-col gap-2">
+              {lista.map((materia) => {
+                const habilitada = cumpleRequisitos(materia, estadoMaterias);
+                const estadoIndex = estadoMaterias[materia] || (habilitada ? 1 : 0);
+                const estado = estados[estadoIndex];
+
+                return (
+                  <button
+                    key={materia}
+                    onClick={() => cambiarEstado(materia)}
+                    className={`p-2 rounded-xl text-left ${estado.color} ${!habilitada && "opacity-50 cursor-not-allowed"}`}
+                  >
+                    <div className="font-medium">{materia}</div>
+                    <div className="text-sm">{estado.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
