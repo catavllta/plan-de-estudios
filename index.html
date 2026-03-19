@@ -37,95 +37,64 @@ const materias = {
 "PFO": ["Medicina Familiar","Emergentología","Prácticas Comunitarias"]
 };
 
-// REGLAS 100% FIELES
-const reglas = {
-
-// CBC → Primer año (todas aprobadas)
-"Anatomía": {dep: materias["CBC"], tipo:"aprobada"},
-"Histología": {dep: materias["CBC"], tipo:"aprobada"},
-"Embriología": {dep: materias["CBC"], tipo:"aprobada"},
-"Biología Molecular y Genética": {dep: materias["CBC"], tipo:"aprobada"},
-
-// Segundo año
-"Fisiología y Biofísica": {dep:["Anatomía","Histología"], tipo:"aprobada"},
-"Bioquímica": {dep:["Anatomía","Histología"], tipo:"aprobada"},
-"Inmunología": {dep:["Anatomía","Histología"], tipo:"aprobada"},
-
-// Microbiología: requiere Bioquímica e Inmunología REGULAR
-"Microbiología": {dep:["Bioquímica","Inmunología"], tipo:"regular"},
-
-// Medicina A: requiere Fisiología aprobada + Microbiología aprobada
-"Medicina A": {dep:["Fisiología y Biofísica","Microbiología"], tipo:"aprobada"},
-
-// Patología: aprobada Medicina A
-"Patología": {dep:["Medicina A"], tipo:"aprobada"},
-
-// Farmacología I: aprobada Medicina A
-"Farmacología I": {dep:["Medicina A"], tipo:"aprobada"},
-
-// Farmacología II: requiere Farmacología I aprobada + Medicina A REGULAR
-"Farmacología II": {dep:["Farmacología I","Medicina A"], tipo:"mixto"},
-
-// Toxicología: aprobada Farmacología I
-"Toxicología": {dep:["Farmacología I"], tipo:"aprobada"},
-
-// Medicina Legal: aprobada Medicina A
-"Medicina Legal y Deontología": {dep:["Medicina A"], tipo:"aprobada"},
-
-// Clínicas y quirúrgicas: Medicina A aprobada + Patología aprobada
-"Medicina B": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Nutrición": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Dermatología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Infectología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Neumonología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Neurología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Diagnóstico por Imágenes": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Psiquiatría": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-
-"Pediatría": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Obstetricia": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Ginecología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Cirugía General": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Urología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Ortopedia - Traumatología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Oftalmología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Otorrinolaringología": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-"Neurocirugía": {dep:["Medicina A","Patología"], tipo:"aprobada"},
-
-// Extras
-"Salud Mental": {dep:["Psiquiatría"], tipo:"aprobada"},
-
-// PFO: TODAS clínicas + quirúrgicas + materias clave aprobadas
-"Medicina Familiar": {dep:["Medicina B","Pediatría","Clínicas","Quirúrgicas"], tipo:"aprobada_global"},
-"Emergentología": {dep:["Medicina B","Pediatría","Clínicas","Quirúrgicas"], tipo:"aprobada_global"},
-"Prácticas Comunitarias": {dep:["Medicina B","Pediatría","Clínicas","Quirúrgicas"], tipo:"aprobada_global"}
-};
-
+// helpers
 let estado = JSON.parse(localStorage.getItem("estado")||"{}");
+function getEstado(m){return estados[estado[m]]}
+function aprobada(m){return getEstado(m)==="aprobada"}
+function regular(m){return getEstado(m)==="regular"||getEstado(m)==="aprobada"}
 
-function checkEstado(m, tipo){
- let e = estado[m];
- if(e===undefined) return false;
- let val = estados[e];
- if(tipo==="aprobada") return val==="aprobada";
- if(tipo==="regular") return val==="regular"||val==="aprobada";
- return false;
+function todasAprobadas(lista){return lista.every(m=>aprobada(m))}
+
+// REGLAS FINALES
+function cumple(m){
+
+// CBC → Primer año
+if(materias["Primer Año"].includes(m)){
+ return todasAprobadas(materias["CBC"]);
 }
 
-function cumple(m){
- let r = reglas[m];
- if(!r) return true;
+// Segundo año
+if(materias["Segundo Año"].includes(m)){
+ return aprobada("Anatomía") && aprobada("Histología");
+}
 
- if(r.tipo==="mixto"){
-  return checkEstado("Farmacología I","aprobada") && checkEstado("Medicina A","regular");
- }
+// Medicina → TODAS CBC + 1° + 2° aprobadas
+if(materias["Medicina"].includes(m)){
+ return todasAprobadas([
+ ...materias["CBC"],
+ ...materias["Primer Año"],
+ ...materias["Segundo Año"]
+ ]);
+}
 
- if(r.tipo==="aprobada_global"){
-  let todas = [...materias["Clínicas"],...materias["Quirúrgicas"]];
-  return todas.every(x=>checkEstado(x,"aprobada"));
- }
+// Farmacología II caso especial
+if(m==="Farmacología II"){
+ return aprobada("Farmacología I") && regular("Medicina A");
+}
 
- return r.dep.every(d=>checkEstado(d,r.tipo));
+// Clínicas y quirúrgicas
+if(materias["Clínicas"].includes(m) || materias["Quirúrgicas"].includes(m)){
+ return aprobada("Medicina A") && aprobada("Patología");
+}
+
+// Salud Mental → libre (solo requiere cursarla)
+if(m==="Salud Mental") return true;
+
+// Psiquiatría → depende de Salud Mental aprobada
+if(m==="Psiquiatría"){
+ return aprobada("Salud Mental");
+}
+
+// PFO → TODO aprobado + extras
+if(materias["PFO"].includes(m)){
+ return todasAprobadas([
+ ...materias["Clínicas"],
+ ...materias["Quirúrgicas"],
+ ...materias["Extras"]
+ ]);
+}
+
+return true;
 }
 
 function guardar(){localStorage.setItem("estado",JSON.stringify(estado));}
