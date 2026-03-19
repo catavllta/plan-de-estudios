@@ -32,7 +32,7 @@ h1 { font-size:28px; margin-bottom:20px;}
 </head>
 <body>
 
-<h1>Plan de Estudios - Medicina (PRO)</h1>
+<h1>Plan de Estudios - Medicina (FIXED)</h1>
 <div class="grid" id="app"></div>
 
 <script>
@@ -96,7 +96,6 @@ function cumple(m){
 
 function guardar(){localStorage.setItem("estado",JSON.stringify(estado));}
 
-// 🔥 RESETEO INTELIGENTE
 function validarTodo(){
  let cambio=true;
 
@@ -105,7 +104,7 @@ function validarTodo(){
 
   for(let bloque in materias){
     materias[bloque].forEach(m=>{
-      if(estado[m] && !cumple(m)){
+      if(estado[m]!==undefined && !cumple(m)){
         estado[m]=0;
         cambio=true;
       }
@@ -116,7 +115,7 @@ function validarTodo(){
 
 function crearMateria(nombre){
  let habilitada=cumple(nombre);
- let est=estado[nombre]??(habilitada?1:0);
+ let est=estado[nombre] ?? (habilitada ? 1 : 0);
 
  let div=document.createElement("div");
  div.className="materia "+estados[est];
