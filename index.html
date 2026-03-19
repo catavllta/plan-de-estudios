@@ -9,18 +9,30 @@ body { font-family: Arial; background:#f3f4f6; padding:20px;}
 h1 { font-size:28px; margin-bottom:20px;}
 .grid { display:grid; grid-template-columns: repeat(3,1fr); gap:20px;}
 .card { background:white; padding:15px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1);}
-.materia { padding:10px; border-radius:10px; margin-bottom:5px; cursor:pointer;}
+.materia { padding:10px; border-radius:10px; margin-bottom:5px; cursor:pointer; position:relative;}
 .bloqueada { background:#d1d5db; cursor:not-allowed;}
 .disponible { background:#bfdbfe;}
 .cursando { background:#fde68a;}
 .regular { background:#fed7aa;}
 .aprobada { background:#86efac;}
+.tooltip {
+ position:absolute;
+ bottom:100%;
+ left:0;
+ background:black;
+ color:white;
+ padding:5px;
+ font-size:12px;
+ border-radius:5px;
+ display:none;
+}
+.materia:hover .tooltip { display:block; }
 </style>
 
 </head>
 <body>
 
-<h1>Plan de Estudios - Medicina (Fiel)</h1>
+<h1>Plan de Estudios - Medicina (PRO)</h1>
 <div class="grid" id="app"></div>
 
 <script>
@@ -37,67 +49,70 @@ const materias = {
 "PFO": ["Medicina Familiar","Emergentología","Prácticas Comunitarias"]
 };
 
-// helpers
 let estado = JSON.parse(localStorage.getItem("estado")||"{}");
+
 function getEstado(m){return estados[estado[m]]}
 function aprobada(m){return getEstado(m)==="aprobada"}
 function regular(m){return getEstado(m)==="regular"||getEstado(m)==="aprobada"}
-
 function todasAprobadas(lista){return lista.every(m=>aprobada(m))}
 
-// REGLAS FINALES
+function requisitosFaltantes(m){
+ let faltan=[];
+
+ if(materias["Primer Año"].includes(m)){
+  materias["CBC"].forEach(x=>{if(!aprobada(x)) faltan.push(x)})
+ }
+
+ if(materias["Segundo Año"].includes(m)){
+  if(!aprobada("Anatomía")) faltan.push("Anatomía");
+  if(!aprobada("Histología")) faltan.push("Histología");
+ }
+
+ if(materias["Medicina"].includes(m)){
+  [...materias["CBC"],...materias["Primer Año"],...materias["Segundo Año"]]
+  .forEach(x=>{if(!aprobada(x)) faltan.push(x)})
+ }
+
+ if(materias["Clínicas"].includes(m) || materias["Quirúrgicas"].includes(m)){
+  if(!aprobada("Medicina A")) faltan.push("Medicina A");
+  if(!aprobada("Patología")) faltan.push("Patología");
+ }
+
+ if(m==="Psiquiatría" && !aprobada("Salud Mental")){
+  faltan.push("Salud Mental");
+ }
+
+ if(materias["PFO"].includes(m)){
+  [...materias["Clínicas"],...materias["Quirúrgicas"],...materias["Extras"]]
+  .forEach(x=>{if(!aprobada(x)) faltan.push(x)})
+ }
+
+ return faltan;
+}
+
 function cumple(m){
-
-// CBC → Primer año
-if(materias["Primer Año"].includes(m)){
- return todasAprobadas(materias["CBC"]);
-}
-
-// Segundo año
-if(materias["Segundo Año"].includes(m)){
- return aprobada("Anatomía") && aprobada("Histología");
-}
-
-// Medicina → TODAS CBC + 1° + 2° aprobadas
-if(materias["Medicina"].includes(m)){
- return todasAprobadas([
- ...materias["CBC"],
- ...materias["Primer Año"],
- ...materias["Segundo Año"]
- ]);
-}
-
-// Farmacología II caso especial
-if(m==="Farmacología II"){
- return aprobada("Farmacología I") && regular("Medicina A");
-}
-
-// Clínicas y quirúrgicas
-if(materias["Clínicas"].includes(m) || materias["Quirúrgicas"].includes(m)){
- return aprobada("Medicina A") && aprobada("Patología");
-}
-
-// Salud Mental → libre (solo requiere cursarla)
-if(m==="Salud Mental") return true;
-
-// Psiquiatría → depende de Salud Mental aprobada
-if(m==="Psiquiatría"){
- return aprobada("Salud Mental");
-}
-
-// PFO → TODO aprobado + extras
-if(materias["PFO"].includes(m)){
- return todasAprobadas([
- ...materias["Clínicas"],
- ...materias["Quirúrgicas"],
- ...materias["Extras"]
- ]);
-}
-
-return true;
+ return requisitosFaltantes(m).length===0;
 }
 
 function guardar(){localStorage.setItem("estado",JSON.stringify(estado));}
+
+// 🔥 RESETEO INTELIGENTE
+function validarTodo(){
+ let cambio=true;
+
+ while(cambio){
+  cambio=false;
+
+  for(let bloque in materias){
+    materias[bloque].forEach(m=>{
+      if(estado[m] && !cumple(m)){
+        estado[m]=0;
+        cambio=true;
+      }
+    })
+  }
+ }
+}
 
 function crearMateria(nombre){
  let habilitada=cumple(nombre);
@@ -107,10 +122,19 @@ function crearMateria(nombre){
  div.className="materia "+estados[est];
  div.innerText=nombre+" ("+estados[est]+")";
 
+ let faltan = requisitosFaltantes(nombre);
+ if(faltan.length>0){
+  let tip=document.createElement("div");
+  tip.className="tooltip";
+  tip.innerText="Falta: "+faltan.join(", ");
+  div.appendChild(tip);
+ }
+
  if(habilitada){
   div.onclick=()=>{
    est=(est+1)%estados.length;
    estado[nombre]=est;
+   validarTodo();
    guardar();
    render();
   }
@@ -120,6 +144,8 @@ function crearMateria(nombre){
 }
 
 function render(){
+ validarTodo();
+
  const app=document.getElementById("app");
  app.innerHTML="";
 
